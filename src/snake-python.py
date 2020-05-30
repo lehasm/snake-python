@@ -1,6 +1,7 @@
 
 import sys, random, time
 import keyboard
+import operator
 
 GRASS   = '.'
 STONE   = 'O'
@@ -8,87 +9,142 @@ HEAD    = '+'
 BODY    = '+'
 TAIL    = '+'
 
-GROUND  = ( 0,  0)
-UP      = (-1,  0)
-DOWN    = ( 1,  0)
-RIGHT   = ( 0,  1)
-LEFT    = ( 0, -1)
+class Space(object):    
 
-space = None
-step_duration_ms = 1000
-step = 0
-snakes = {
-    'my' : []
-}
+    def __init__(self, width = 12, height = 8):
+        self._space = [ [[GRASS] for i in range(width)] for j in range(height)]
 
-def CreateSpace(space_width = 12,
-                space_height = 8):
-    global space
-    space = [ [GRASS for i in range(space_width)] for j in range(space_height)]
-    # print(space)
+    def Display(self):
+        pass
+
+    def _GetField(self, r, c):
+        # print(f, self._space[f[0]], self._space[f[0]][f[1]])
+        if self._space[r:] and self._space[r][c:] :
+            return self._space[r][c]
+            return None
+
+    def ElevateSnake(self, snake):
+        for s in snake:
+            f = self._GetField(*s['field'])
+            for i in range(len(f)):
+                if snake.IsSnake(f[-i]):
+                    del f[-i]
+                    break
+            else:
+                raise KeyError("No snake found in field [{}][{}]: {}".format(
+                                s['field'][0], s['field'][1], str(f)))
+
+    def PlaceSnake(self, snake):
+        for s in snake:
+            f = self._GetField(*s['field'])
+            if f:
+                f.append(HEAD)
+
+class ConsoleSpace(Space):
+    def Display(self):
+        """
+        Отображает самый верхний (с наибольшим индексом) 
+        символ поля в консоли без преобразований
+        """
+        for row in self._space:
+            for field in row: 
+                print(field[-1], end='')
+            print()
+
+class DebugConsoleSpace(Space):
+    def Display(self):
+        """
+        Отображает самый верхний (с наибольшим индексом) 
+        символ поля в консоли без преобразований
+        """
+        print("-"*(4*12))
+        for row in self._space:
+            for field in row: 
+                print("{:4}".format(''.join(field)), end='')
+            print()
 
 
-def SimpleConsoleDisplay(space):
-    """
-    Отображает символы поля в консоли без преобразований
-    """
-    for row in space:
-        for field in row: 
-            print(field[0], end='')
-        print()
+class Snake(object):
+    GROUND  = ( 0,  0)
+    UP      = (-1,  0)
+    DOWN    = ( 1,  0)
+    RIGHT   = ( 0,  1)
+    LEFT    = ( 0, -1)
+    
+    def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
+        self._segments = []
+        for i in range(length):
+            self._segments.append({'field' : (x, y+i), 'look' : look})
+    
+    def __iter__(self):
+        return iter(self._segments)
+
+    @classmethod
+    def IsSnake(cls, w):
+        return w in (HEAD, BODY, TAIL)
+
+    def Move(self):
+        for i in range(len(self._segments)-1, 1):
+            s = self._segments[i]
+            # move segment in a look direction
+            # (add coordinates)
+            s['field'] = tuple(map(operator.add, s['field'], s['look']))
+            if i != 0:
+                # set next segment look
+                s['look'] = self._segments[i-1]['look'] 
+        # print(self._segments)
+
+    def SetHeadLook(self, l):
+        self._segments[0]['look'] = l
 
 
-def CreateSnake(name = 'my', length = 5, x = None, y = None, look = None):
-    global space
-    global snakes
-    x = x or len(space)//2
-    y = y or len(space[x])//2
-    look = look or UP
-    snake = []
-    for i in range(length):
-        snake.append({'field' : (x, y+i), 'look' : UP})
-    snakes[name] = snake
+def ControlSnakeDuring(snake, control_period_s, poll_period_s = 0.05):
+    look_dict = {'up': Snake.UP, 'down': Snake.DOWN, 
+                 'right': Snake.RIGHT, 'left': Snake.LEFT, 
+                 'space': Snake.GROUND}
 
-
-def UpdateSnakeLook(snake):
-    update_dict = {'up': UP, 'down': DOWN, 'right': RIGHT, 'left': LEFT, 'space': GROUND}
-    for key, look in update_dict.items():
-        if keyboard.is_pressed(key):
-            if snake[0]['look'] != look:
-                snake[0]['look'] = look
-                print('New look:', snake[0]['look'])
-
-
-def SimpleWaitNextStep():
     t_start_ns = time.perf_counter_ns()
-    while(time.perf_counter_ns() < (t_start_ns + step_duration_ms * 10**6)):
-        time.sleep(0.05)
-        UpdateSnakeLook(snakes['my'])
-
-def MoveSnake(snake):
-    pass
-
-
-def Step():
-    global step
-    step += 1
+    while(time.perf_counter_ns() < (t_start_ns + control_period_s * 10**9)):
+        time.sleep(poll_period_s)
+        for key, look in look_dict.items():
+            if keyboard.is_pressed(key):
+                snake.SetHeadLook(look)
 
 
-def Run(DisplayFunction = SimpleConsoleDisplay, WaitNextStepFunction = SimpleWaitNextStep):
+def Run():
     """
     Выполняет главный цикл игры,
     при этом вызывает функции отображения и 
     ожидания следующего шага.
     """
-    CreateSpace()
-    CreateSnake()
-    DisplayFunction(space)
+    space = ConsoleSpace()
+    space = DebugConsoleSpace()
 
-    while(True):
-        WaitNextStepFunction()
-        Step()
-        # DisplayFunction(space)
+    snakes = {}
+    my_snake = Snake()
+    snakes["my"] = my_snake
 
+    space.PlaceSnake(my_snake)
+    space.Display()
+
+    # space.ElevateSnake(my_snake)
+    # space.Display()
+    # space.ElevateSnake(my_snake)
+    # return
+
+    try:
+        while(True):
+            ControlSnakeDuring(my_snake, control_period_s=0.5)
+
+            for snake in snakes.values():
+                space.ElevateSnake(snake)
+                snake.Move()
+                space.PlaceSnake(snake)
+            
+            space.Display()
+
+    except KeyboardInterrupt as e:
+        print('We hope you have fun')
 
 if __name__ == '__main__':
     print('snake-python')
