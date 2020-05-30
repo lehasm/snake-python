@@ -6,8 +6,8 @@ import operator
 GRASS   = '.'
 STONE   = 'O'
 HEAD    = '+'
-BODY    = '+'
-TAIL    = '+'
+BODY    = '#'
+TAIL    = '#'
 
 class Space(object):    
 
@@ -17,28 +17,32 @@ class Space(object):
     def Display(self):
         pass
 
-    def _GetField(self, r, c):
-        # print(f, self._space[f[0]], self._space[f[0]][f[1]])
-        if self._space[r:] and self._space[r][c:] :
-            return self._space[r][c]
-            return None
+    def _GetField(self, complex_coordinate):
+        r = int(complex_coordinate.real)
+        c = int(complex_coordinate.imag)
+        if (0 <= r < len(self._space)) and (0 <= c < len(self._space[r])) :
+                return self._space[r][c]
+        return None
 
     def ElevateSnake(self, snake):
         for s in snake:
-            f = self._GetField(*s['field'])
+            f = self._GetField(s['field'])
+            if f is None:
+                continue
+
             for i in range(len(f)):
                 if snake.IsSnake(f[-i]):
                     del f[-i]
                     break
             else:
-                raise KeyError("No snake found in field [{}][{}]: {}".format(
-                                s['field'][0], s['field'][1], str(f)))
+                raise KeyError("No snake found in field {}: {}".format(
+                                s['field'], str(f)))
 
     def PlaceSnake(self, snake):
         for s in snake:
-            f = self._GetField(*s['field'])
+            f = self._GetField(s['field'])
             if f:
-                f.append(HEAD)
+                f.append(snake.WhatSegment(s))
 
 class ConsoleSpace(Space):
     def Display(self):
@@ -65,16 +69,17 @@ class DebugConsoleSpace(Space):
 
 
 class Snake(object):
-    GROUND  = ( 0,  0)
-    UP      = (-1,  0)
-    DOWN    = ( 1,  0)
-    RIGHT   = ( 0,  1)
-    LEFT    = ( 0, -1)
+    GROUND  = complex ( 0,  0)
+    UP      = complex (-1,  0)
+    DOWN    = complex ( 1,  0)
+    RIGHT   = complex ( 0,  1)
+    LEFT    = complex ( 0, -1)
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
         self._segments = []
         for i in range(length):
-            self._segments.append({'field' : (x, y+i), 'look' : look})
+            self._segments.append({'field' : complex(x, y+i), 'look' : look})
+            look = self.LEFT
     
     def __iter__(self):
         return iter(self._segments)
@@ -84,18 +89,27 @@ class Snake(object):
         return w in (HEAD, BODY, TAIL)
 
     def Move(self):
-        for i in range(len(self._segments)-1, 1):
+        for i in range(len(self._segments)-1, -1, -1):
             s = self._segments[i]
+            # print("Move", s)
             # move segment in a look direction
             # (add coordinates)
-            s['field'] = tuple(map(operator.add, s['field'], s['look']))
+            s['field'] = s['field'] + s['look']
             if i != 0:
                 # set next segment look
                 s['look'] = self._segments[i-1]['look'] 
-        # print(self._segments)
+            # print("New", s)
 
     def SetHeadLook(self, l):
         self._segments[0]['look'] = l
+
+    def WhatSegment(self, segment):
+        if segment == self._segments[0]:
+            return HEAD
+        elif segment == self._segments[-1]:
+            return TAIL
+        else:
+            return BODY
 
 
 def ControlSnakeDuring(snake, control_period_s, poll_period_s = 0.05):
