@@ -90,12 +90,23 @@ class Snake(object):
     LEFT    = complex ( 0, -1)
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
+        self._step_duration_s = 0.4
         self._segments = []
-        self._step_duration_s = 0.5
-        for i in range(length):
-            self._segments.append({'field' : complex(x, y+i), 'look' : look})
-            look = self.LEFT
+        self._segments.append({'field' : complex(x, y), 'look' : look})
+        for i in range(1, length):
+            self.AppendTail()
+            # self._segments.append({'field' : complex(x, y+i), 'look' : look})
+            # look = self.LEFT
     
+    def AppendTail(self, side = GROUND):
+        tail = self._segments[-1]
+        new_segment = {'field' : tail['field'] + side, 'look' : -side}
+        self._segments.append(new_segment)
+
+    def TrimTail(self):
+        if len(self._segments) > 1:
+            del self._segments[-1]
+
     def __iter__(self):
         return iter(self._segments)
 
@@ -114,7 +125,11 @@ class Snake(object):
         return self._segments[0]
     def SetHeadLook(self, l):
         self.GetHead()['look'] = l
+    def GetHeadLook(self):
+        return self.GetHead()['look']
 
+    def GetLookField(self):
+        return self.GetHead()['field'] + self.GetHead()['look']
 
     def Move(self):
         if self.GetHead()['look'] == self.GROUND:
@@ -159,6 +174,24 @@ def ControlSnakeStep(snake, poll_period_s = 0.05):
             snake.DecreaseSpeed()
             spead_changed = 1
 
+def Interact(snake, space):
+    look_field = snake.GetLookField()
+    in_front = space.GetFieldTop(look_field)
+    if in_front == GRASS:
+        pass
+    elif in_front == BUG:
+        space.RemoveFieldTop(look_field)
+        snake.AppendTail()
+        space.PlaceRandom(BUG)
+    else:
+        # Other (or unknown) field
+        snake.SetHeadLook(Snake.GROUND)
+
+    if(snake.GetHeadLook() != Snake.GROUND):
+        space.ElevateSnake(snake)
+        snake.Move()
+        space.PlaceSnake(snake)
+
 
 def Run():
     """
@@ -178,15 +211,12 @@ def Run():
     space.PlaceSnake(my_snake)
     space.Display()
 
-
     try:
         while(True):
             ControlSnakeStep(my_snake)
 
             for snake in snakes.values():
-                space.ElevateSnake(snake)
-                snake.Move()
-                space.PlaceSnake(snake)
+                Interact(snake, space)
             
             space.Display()
 
