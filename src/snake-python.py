@@ -8,41 +8,54 @@ STONE   = 'O'
 HEAD    = '+'
 BODY    = '#'
 TAIL    = '#'
+BUG     = '*'
+FAULT   = 'X'
 
 class Space(object):    
 
-    def __init__(self, width = 12, height = 8):
+    def __init__(self, width = 16, height = 10):
+        self._width = width
+        self._height = height
         self._space = [ [[GRASS] for i in range(width)] for j in range(height)]
 
     def Display(self):
         pass
 
-    def _GetField(self, complex_coordinate):
+    def GetField(self, complex_coordinate):
         r = int(complex_coordinate.real)
         c = int(complex_coordinate.imag)
         if (0 <= r < len(self._space)) and (0 <= c < len(self._space[r])) :
                 return self._space[r][c]
-        return None
+        return [FAULT]
+
+    def GetFieldTop(self, complex_coordinate):
+        return self.GetField(complex_coordinate)[-1]
+
+    def PlaceFieldTop(self, complex_coordinate, what):
+        self.GetField(complex_coordinate).append(what)
+
+    def RemoveFieldTop(self, complex_coordinate):
+        f = self.GetField(complex_coordinate)
+        if f: del f[-1]
+
 
     def ElevateSnake(self, snake):
         for s in snake:
-            f = self._GetField(s['field'])
-            if f is None:
-                continue
-
-            for i in range(len(f)):
-                if snake.IsSnake(f[-i]):
-                    del f[-i]
-                    break
-            else:
-                raise KeyError("No snake found in field {}: {}".format(
-                                s['field'], str(f)))
+            if  snake.IsSnake(self.GetFieldTop(s['field'])):
+                self.RemoveFieldTop(s['field'])
 
     def PlaceSnake(self, snake):
         for s in snake:
-            f = self._GetField(s['field'])
-            if f:
-                f.append(snake.WhatSegment(s))
+            self.PlaceFieldTop(s['field'], snake.WhatSegment(s))
+
+    def PlaceRandom(self, what, how_much = 1):
+        if isinstance(how_much, float):
+            how_much = int(how_much * self._width * self._height)
+        for _ in range(how_much):
+            r = random.randrange(0, self._height)
+            c = random.randrange(0, self._width)
+            self.PlaceFieldTop(complex(r, c), what)
+
 
 class ConsoleSpace(Space):
     def Display(self):
@@ -50,9 +63,10 @@ class ConsoleSpace(Space):
         Отображает самый верхний (с наибольшим индексом) 
         символ поля в консоли без преобразований
         """
+        print("\n\n\n\n\n")
         for row in self._space:
             for field in row: 
-                print(field[-1], end='')
+                print(field[-1], end=' ')
             print()
 
 class DebugConsoleSpace(Space):
@@ -77,6 +91,7 @@ class Snake(object):
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
         self._segments = []
+        self._step_duration_s = 0.5
         for i in range(length):
             self._segments.append({'field' : complex(x, y+i), 'look' : look})
             look = self.LEFT
@@ -88,7 +103,22 @@ class Snake(object):
     def IsSnake(cls, w):
         return w in (HEAD, BODY, TAIL)
 
+    def GetStepPeriod(self):
+        return self._step_duration_s
+    def IncreaseSpeed(self):
+        self._step_duration_s /= 1.2
+    def DecreaseSpeed(self):
+        self._step_duration_s *= 1.2
+
+    def GetHead(self):
+        return self._segments[0]
+    def SetHeadLook(self, l):
+        self.GetHead()['look'] = l
+
+
     def Move(self):
+        if self.GetHead()['look'] == self.GROUND:
+            return
         for i in range(len(self._segments)-1, -1, -1):
             s = self._segments[i]
             # print("Move", s)
@@ -100,9 +130,6 @@ class Snake(object):
                 s['look'] = self._segments[i-1]['look'] 
             # print("New", s)
 
-    def SetHeadLook(self, l):
-        self._segments[0]['look'] = l
-
     def WhatSegment(self, segment):
         if segment == self._segments[0]:
             return HEAD
@@ -112,17 +139,25 @@ class Snake(object):
             return BODY
 
 
-def ControlSnakeDuring(snake, control_period_s, poll_period_s = 0.05):
+def ControlSnakeStep(snake, poll_period_s = 0.05):
     look_dict = {'up': Snake.UP, 'down': Snake.DOWN, 
                  'right': Snake.RIGHT, 'left': Snake.LEFT, 
                  'space': Snake.GROUND}
 
+    spead_changed = 0
     t_start_ns = time.perf_counter_ns()
+    control_period_s = snake.GetStepPeriod()
     while(time.perf_counter_ns() < (t_start_ns + control_period_s * 10**9)):
         time.sleep(poll_period_s)
         for key, look in look_dict.items():
             if keyboard.is_pressed(key):
                 snake.SetHeadLook(look)
+        if not spead_changed and keyboard.is_pressed('+'):
+            snake.IncreaseSpeed()
+            spead_changed = 1
+        if not spead_changed and keyboard.is_pressed('-'):
+            snake.DecreaseSpeed()
+            spead_changed = 1
 
 
 def Run():
@@ -132,7 +167,9 @@ def Run():
     ожидания следующего шага.
     """
     space = ConsoleSpace()
-    space = DebugConsoleSpace()
+    space.PlaceRandom(STONE, how_much=0.05)
+    space.PlaceRandom(BUG, how_much=1)
+    # space = DebugConsoleSpace()
 
     snakes = {}
     my_snake = Snake()
@@ -141,14 +178,10 @@ def Run():
     space.PlaceSnake(my_snake)
     space.Display()
 
-    # space.ElevateSnake(my_snake)
-    # space.Display()
-    # space.ElevateSnake(my_snake)
-    # return
 
     try:
         while(True):
-            ControlSnakeDuring(my_snake, control_period_s=0.5)
+            ControlSnakeStep(my_snake)
 
             for snake in snakes.values():
                 space.ElevateSnake(snake)
