@@ -63,7 +63,7 @@ class ConsoleSpace(Space):
         Отображает самый верхний (с наибольшим индексом) 
         символ поля в консоли без преобразований
         """
-        print("\n\n\n\n\n")
+        super().Display()
         for row in self._space:
             for field in row: 
                 print(field[-1], end=' ')
@@ -80,6 +80,22 @@ class DebugConsoleSpace(Space):
             for field in row: 
                 print("{:4}".format(''.join(field)), end='')
             print()
+
+class WinConsoleSpace(Space):
+    def __init__(self, width = 16, height = 10):
+        super().__init__(width, height)
+        import WinConsole
+        self.c = WinConsole.WinConsoleClass()
+
+    def Display(self):
+        self.c.set_console_cursor_pos(0, 0)
+        # self.c.set_console_color(self.c.FOREGROUND_YELLOW, 
+        #                          self.c.BACKGROUND_BLACK)
+        for row in self._space:
+            for field in row: 
+                print(field[-1], end=' ')
+            print()
+
 
 
 class Snake(object):
@@ -199,10 +215,11 @@ def Run():
     при этом вызывает функции отображения и 
     ожидания следующего шага.
     """
-    space = ConsoleSpace()
+    # space = ConsoleSpace()
+    # space = DebugConsoleSpace()
+    space = WinConsoleSpace()
     space.PlaceRandom(STONE, how_much=0.05)
     space.PlaceRandom(BUG, how_much=1)
-    # space = DebugConsoleSpace()
 
     snakes = {}
     my_snake = Snake()
