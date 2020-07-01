@@ -7,7 +7,7 @@ GRASS   = '.'
 STONE   = 'O'
 HEAD    = '+'
 BODY    = '#'
-TAIL    = '#'
+TAIL    = '`'
 BUG     = '*'
 FAULT   = 'X'
 
@@ -82,6 +82,23 @@ class DebugConsoleSpace(Space):
             print()
 
 class WinConsoleSpace(Space):
+    # https://en.wikipedia.org/wiki/Box-drawing_character
+    # https://en.wikipedia.org/wiki/Geometric_Shapes
+    # ...
+    sim_table = {BUG : '\u2618', 
+                 GRASS : ' ', STONE : "\u25FC",
+                 HEAD : "\u2687", BODY : "\u25CB", TAIL : "\u25E6"}
+    BORDER_H = "\u2500"
+    BORDER_V = "\u2502"
+    CORNER_0 = "\u250C"
+    CORNER_1 = "\u2510"
+    CORNER_2 = "\u2518"
+    CORNER_3 = "\u2514"
+    CLEAR_RIGHT = " "*10
+
+    def GetSymbol(self, s):
+        return self.sim_table.get(s, None) or s
+
     def __init__(self, width = 16, height = 10):
         super().__init__(width, height)
         import WinConsole
@@ -91,10 +108,15 @@ class WinConsoleSpace(Space):
         self.c.set_console_cursor_pos(0, 0)
         # self.c.set_console_color(self.c.FOREGROUND_YELLOW, 
         #                          self.c.BACKGROUND_BLACK)
+        print(self.CORNER_0, self.BORDER_H * self._width, self.CORNER_1,
+              self.CLEAR_RIGHT, sep='')
         for row in self._space:
+            print(self.BORDER_V, end='')
             for field in row: 
-                print(field[-1], end=' ')
-            print()
+                print(self.GetSymbol(field[-1]), end='')
+            print(self.BORDER_V, self.CLEAR_RIGHT, sep='')        
+        print(self.CORNER_3, self.BORDER_H * self._width, self.CORNER_2, 
+              self.CLEAR_RIGHT, sep='')
 
 
 
@@ -241,5 +263,4 @@ def Run():
         print('We hope you have fun')
 
 if __name__ == '__main__':
-    print('snake-python')
     Run()
