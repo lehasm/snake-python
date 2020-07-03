@@ -17,9 +17,10 @@ class Space(object):
         self._width = width
         self._height = height
         self._space = [ [[GRASS] for i in range(width)] for j in range(height)]
+        self.info = ''
 
     def Display(self):
-        pass
+        print(self.info)
 
     def GetField(self, complex_coordinate):
         r = int(complex_coordinate.real)
@@ -85,9 +86,10 @@ class WinConsoleSpace(Space):
     # https://en.wikipedia.org/wiki/Box-drawing_character
     # https://en.wikipedia.org/wiki/Geometric_Shapes
     # ...
-    sim_table = {BUG : '\u2618', 
-                 GRASS : ' ', STONE : "\u25FC",
-                 HEAD : "\u2687", BODY : "\u25CB", TAIL : "\u25E6"}
+    # "\u2219" - bold dot
+    sim_table = {BUG : '\u263C', 
+                 GRASS : ' ', STONE : "\u2588",
+                 HEAD : "\u263B", BODY : "\u25CB", TAIL : "\u25CB"}
     BORDER_H = "\u2500"
     BORDER_V = "\u2502"
     CORNER_0 = "\u250C"
@@ -103,9 +105,13 @@ class WinConsoleSpace(Space):
         super().__init__(width, height)
         import WinConsole
         self.c = WinConsole.WinConsoleClass()
+        self.start_line = self.c.get_console_cursor_pos()["y"]
+        print("\n"*(height+5))  # space placeholder
 
     def Display(self):
-        self.c.set_console_cursor_pos(0, 0)
+        self.c.set_console_cursor_pos(0, self.start_line)
+        super().Display()
+        self.c.set_console_cursor_pos(0, self.start_line+2)
         # self.c.set_console_color(self.c.FOREGROUND_YELLOW, 
         #                          self.c.BACKGROUND_BLACK)
         print(self.CORNER_0, self.BORDER_H * self._width, self.CORNER_1,
@@ -128,7 +134,7 @@ class Snake(object):
     LEFT    = complex ( 0, -1)
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
-        self._step_duration_s = 0.4
+        self._step_duration_s = 0.3
         self._segments = []
         self._segments.append({'field' : complex(x, y), 'look' : look})
         for i in range(1, length):
@@ -151,6 +157,9 @@ class Snake(object):
     @classmethod
     def IsSnake(cls, w):
         return w in (HEAD, BODY, TAIL)
+
+    def GetLength(self):
+        return len(self._segments)
 
     def GetStepPeriod(self):
         return self._step_duration_s
@@ -257,6 +266,8 @@ def Run():
             for snake in snakes.values():
                 Interact(snake, space)
             
+            space.info = "Length: {} Step time: {:0.2f}".format(
+                    my_snake.GetLength(), my_snake.GetStepPeriod())
             space.Display()
 
     except KeyboardInterrupt as e:
