@@ -9,7 +9,7 @@ HEAD    = '+'
 BODY    = '#'
 TAIL    = '`'
 BUG     = '*'
-FAULT   = 'X'
+FAULT   = 'x'
 
 class Space(object):    
 
@@ -135,6 +135,7 @@ class Snake(object):
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
         self._is_alive = True
+        self._relief_time = None
         self._step_duration_s = 0.3
         self._segments = []
         self._segments.append({'field' : complex(x, y), 'look' : look})
@@ -148,6 +149,12 @@ class Snake(object):
 
     def SetAlive(self, v):
         self._is_alive = v
+    
+    def GetReliefTime(self):
+        return self._relief_time
+
+    def SetReliefTime(self, v):
+        self._relief_time = v
 
     def AppendTail(self, side = GROUND):
         tail = self._segments[-1]
@@ -160,6 +167,9 @@ class Snake(object):
 
     def __iter__(self):
         return iter(self._segments)
+
+    def __getitem__(self, key):
+        return self._segments[key]
 
     @classmethod
     def IsSnake(cls, w):
@@ -230,7 +240,7 @@ def ControlSnakeStep(snake, poll_period_s = 0.05):
         if keyboard.is_pressed('Esc'):
             snake.SetAlive(False)
 
-def Interact(snake, space):
+def Interact(snake, space, step_index):
     look_field = snake.GetLookField()
     in_front = space.GetFieldTop(look_field)
     if in_front == GRASS:
@@ -242,6 +252,14 @@ def Interact(snake, space):
     else:
         # Other (or unknown) field
         snake.SetHeadLook(Snake.GROUND)
+
+    if (snake.GetReliefTime() and step_index > 0 and
+        step_index % snake.GetReliefTime() == 0):
+        tail_field = snake[-1]['field']
+        snake.TrimTail()
+        space.PlaceFieldTop(tail_field, FAULT)
+        if snake.GetLength() <= 1:
+            snake.SetAlive(False)
 
     if(snake.GetHeadLook() != Snake.GROUND):
         space.ElevateSnake(snake)
@@ -265,16 +283,19 @@ def Run():
 
             snakes = {}
             my_snake = Snake()
+            my_snake.SetReliefTime(100)
             snakes["my"] = my_snake
+            step_index = 0
 
             space.PlaceSnake(my_snake)
             space.Display()
 
             while(True):
                 ControlSnakeStep(my_snake)
+                step_index += 1
 
                 for snake in snakes.values():
-                    Interact(snake, space)
+                    Interact(snake, space, step_index)
                 
                 space.info = "Length: {} Step time: {:0.2f}".format(
                         my_snake.GetLength(), my_snake.GetStepPeriod())
