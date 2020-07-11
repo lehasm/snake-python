@@ -134,6 +134,7 @@ class Snake(object):
     LEFT    = complex ( 0, -1)
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
+        self._is_alive = True
         self._step_duration_s = 0.3
         self._segments = []
         self._segments.append({'field' : complex(x, y), 'look' : look})
@@ -142,6 +143,12 @@ class Snake(object):
             # self._segments.append({'field' : complex(x, y+i), 'look' : look})
             # look = self.LEFT
     
+    def IsAlive(self):
+        return self._is_alive
+
+    def SetAlive(self, v):
+        self._is_alive = v
+
     def AppendTail(self, side = GROUND):
         tail = self._segments[-1]
         new_segment = {'field' : tail['field'] + side, 'look' : -side}
@@ -206,7 +213,7 @@ def ControlSnakeStep(snake, poll_period_s = 0.05):
                  'right': Snake.RIGHT, 'left': Snake.LEFT, 
                  'space': Snake.GROUND}
 
-    spead_changed = 0
+    speed_changed = 0
     t_start_ns = time.perf_counter_ns()
     control_period_s = snake.GetStepPeriod()
     while(time.perf_counter_ns() < (t_start_ns + control_period_s * 10**9)):
@@ -214,12 +221,14 @@ def ControlSnakeStep(snake, poll_period_s = 0.05):
         for key, look in look_dict.items():
             if keyboard.is_pressed(key):
                 snake.SetHeadLook(look)
-        if not spead_changed and keyboard.is_pressed('+'):
+        if not speed_changed and keyboard.is_pressed('+'):
             snake.IncreaseSpeed()
-            spead_changed = 1
-        if not spead_changed and keyboard.is_pressed('-'):
+            speed_changed = 1
+        if not speed_changed and keyboard.is_pressed('-'):
             snake.DecreaseSpeed()
-            spead_changed = 1
+            speed_changed = 1
+        if keyboard.is_pressed('Esc'):
+            snake.SetAlive(False)
 
 def Interact(snake, space):
     look_field = snake.GetLookField()
@@ -246,32 +255,36 @@ def Run():
     при этом вызывает функции отображения и 
     ожидания следующего шага.
     """
-    # space = ConsoleSpace()
-    # space = DebugConsoleSpace()
-    space = WinConsoleSpace()
-    space.PlaceRandom(STONE, how_much=0.05)
-    space.PlaceRandom(BUG, how_much=1)
-
-    snakes = {}
-    my_snake = Snake()
-    snakes["my"] = my_snake
-
-    space.PlaceSnake(my_snake)
-    space.Display()
-
     try:
         while(True):
-            ControlSnakeStep(my_snake)
+            # space = ConsoleSpace()
+            # space = DebugConsoleSpace()
+            space = WinConsoleSpace()
+            space.PlaceRandom(STONE, how_much=0.05)
+            space.PlaceRandom(BUG, how_much=1)
 
-            for snake in snakes.values():
-                Interact(snake, space)
-            
-            space.info = "Length: {} Step time: {:0.2f}".format(
-                    my_snake.GetLength(), my_snake.GetStepPeriod())
+            snakes = {}
+            my_snake = Snake()
+            snakes["my"] = my_snake
+
+            space.PlaceSnake(my_snake)
             space.Display()
+
+            while(True):
+                ControlSnakeStep(my_snake)
+
+                for snake in snakes.values():
+                    Interact(snake, space)
+                
+                space.info = "Length: {} Step time: {:0.2f}".format(
+                        my_snake.GetLength(), my_snake.GetStepPeriod())
+                space.Display()
+                if not snakes["my"].IsAlive():
+                    break
 
     except KeyboardInterrupt as e:
         print('We hope you have fun')
+        
 
 if __name__ == '__main__':
     Run()
