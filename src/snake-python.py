@@ -196,7 +196,7 @@ class Snake(object):
         return self.GetHead()['field'] + self.GetHead()['look']
 
     def Move(self):
-        if self.GetHead()['look'] == self.GROUND:
+        if self.GetHeadLook() == self.GROUND:
             return
         for i in range(len(self._segments)-1, -1, -1):
             s = self._segments[i]
@@ -216,6 +216,15 @@ class Snake(object):
             return TAIL
         else:
             return BODY
+
+
+class AiSnake(Snake):
+    def Move(self):
+        # print("AiSnake move")
+        if self.GetHeadLook() == self.GROUND:
+            looks = [self.UP, self.DOWN, self.LEFT, self.RIGHT]
+            self.SetHeadLook(*random.sample(looks, 1))
+        Snake.Move(self)
 
 
 def ControlSnakeStep(snake, poll_period_s = 0.05):
@@ -261,10 +270,9 @@ def Interact(snake, space, step_index):
         if snake.GetLength() <= 1:
             snake.SetAlive(False)
 
-    if(snake.GetHeadLook() != Snake.GROUND):
-        space.ElevateSnake(snake)
-        snake.Move()
-        space.PlaceSnake(snake)
+    space.ElevateSnake(snake)
+    snake.Move()
+    space.PlaceSnake(snake)
 
 
 def Run():
@@ -287,7 +295,11 @@ def Run():
             snakes["my"] = my_snake
             step_index = 0
 
-            space.PlaceSnake(my_snake)
+            neighbour_snake = AiSnake(x = 5 , y = 5)
+            snakes["Jim"] = neighbour_snake
+
+            for s in snakes.values():
+                space.PlaceSnake(s)
             space.Display()
 
             while(True):
