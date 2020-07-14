@@ -135,6 +135,7 @@ class Snake(object):
     
     def __init__(self, length = 5, x = 0, y = 0, look = DOWN):
         self._is_alive = True
+        self._step_index = 0
         self._relief_time = None
         self._step_duration_s = 0.3
         self._segments = []
@@ -191,7 +192,8 @@ class Snake(object):
         self.GetHead()['look'] = l
     def GetHeadLook(self):
         return self.GetHead()['look']
-
+    def GetHeadField(self):
+        return self.GetHead()['field']
     def GetLookField(self):
         return self.GetHead()['field'] + self.GetHead()['look']
 
@@ -217,14 +219,49 @@ class Snake(object):
         else:
             return BODY
 
+    def Interact(self, space):
+        look_field = self.GetLookField()
+        in_front = space.GetFieldTop(look_field)
+        
+        if in_front == GRASS:
+            pass
+        elif in_front == BUG:
+            space.RemoveFieldTop(look_field)
+            self.AppendTail()
+            space.PlaceRandom(BUG)
+        else:
+            # Other (or unknown) field
+            self.SetHeadLook(Snake.GROUND)
+
+        if (self.GetReliefTime() and self._step_index > 0 and
+            self._step_index % self.GetReliefTime() == 0):
+            tail_field = self[-1]['field']
+            self.TrimTail()
+            space.PlaceFieldTop(tail_field, FAULT)
+            if self.GetLength() <= 1:
+                self.SetAlive(False)
+        self._step_index += 1
+
 
 class AiSnake(Snake):
-    def Move(self):
-        # print("AiSnake move")
-        if self.GetHeadLook() == self.GROUND:
-            looks = [self.UP, self.DOWN, self.LEFT, self.RIGHT]
-            self.SetHeadLook(*random.sample(looks, 1))
-        Snake.Move(self)
+        
+    def Interact(self, space):
+        looks = [self.UP,  self.RIGHT, self.DOWN, self.LEFT]
+        random.shuffle(looks)
+        allowed_looks = []
+        for look in looks:
+            in_front = space.GetFieldTop(self.GetHeadField() + look)
+            if in_front == BUG:
+                self.SetHeadLook(look)
+                break
+            if in_front == GRASS:
+                allowed_looks.append(look)
+        if space.GetFieldTop(self.GetLookField()) not in (GRASS, BUG):
+            look = allowed_looks[0] if len(allowed_looks) > 0 else self.GROUND
+            self.SetHeadLook(look)
+
+        Snake.Interact(self, space)
+
 
 
 def ControlSnakeStep(snake, poll_period_s = 0.05):
@@ -249,30 +286,6 @@ def ControlSnakeStep(snake, poll_period_s = 0.05):
         if keyboard.is_pressed('Esc'):
             snake.SetAlive(False)
 
-def Interact(snake, space, step_index):
-    look_field = snake.GetLookField()
-    in_front = space.GetFieldTop(look_field)
-    if in_front == GRASS:
-        pass
-    elif in_front == BUG:
-        space.RemoveFieldTop(look_field)
-        snake.AppendTail()
-        space.PlaceRandom(BUG)
-    else:
-        # Other (or unknown) field
-        snake.SetHeadLook(Snake.GROUND)
-
-    if (snake.GetReliefTime() and step_index > 0 and
-        step_index % snake.GetReliefTime() == 0):
-        tail_field = snake[-1]['field']
-        snake.TrimTail()
-        space.PlaceFieldTop(tail_field, FAULT)
-        if snake.GetLength() <= 1:
-            snake.SetAlive(False)
-
-    space.ElevateSnake(snake)
-    snake.Move()
-    space.PlaceSnake(snake)
 
 
 def Run():
@@ -293,7 +306,6 @@ def Run():
             my_snake = Snake()
             my_snake.SetReliefTime(100)
             snakes["my"] = my_snake
-            step_index = 0
 
             neighbour_snake = AiSnake(x = 5 , y = 5)
             snakes["Jim"] = neighbour_snake
@@ -304,15 +316,17 @@ def Run():
 
             while(True):
                 ControlSnakeStep(my_snake)
-                step_index += 1
 
                 for snake in snakes.values():
-                    Interact(snake, space, step_index)
+                    snake.Interact(space)
+                    space.ElevateSnake(snake)
+                    snake.Move()
+                    space.PlaceSnake(snake)
                 
                 space.info = "Length: {} Step time: {:0.2f}".format(
                         my_snake.GetLength(), my_snake.GetStepPeriod())
                 space.Display()
-                if not snakes["my"].IsAlive():
+                if not my_snake.IsAlive():
                     break
 
     except KeyboardInterrupt as e:
