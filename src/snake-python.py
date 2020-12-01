@@ -13,7 +13,7 @@ FAULT   = 'x'
 
 class Space(object):    
 
-    def __init__(self, width = 16, height = 10):
+    def __init__(self, width = 32, height = 20):
         self._width = width
         self._height = height
         self._space = [ [[GRASS] for i in range(width)] for j in range(height)]
@@ -101,7 +101,7 @@ class WinConsoleSpace(Space):
     def GetSymbol(self, s):
         return self.sim_table.get(s, None) or s
 
-    def __init__(self, width = 16, height = 10):
+    def __init__(self, width = 32, height = 20):
         super().__init__(width, height)
         import WinConsole
         self.c = WinConsole.WinConsoleClass()
