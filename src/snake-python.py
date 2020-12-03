@@ -1,4 +1,4 @@
-"""Snake game. Snake just stops ahead of stones borders and other snakes. He does not die."""
+"""Snake game. Snake just stops ahead of stones borders and other snakes. He does not die. """
 
 import sys, random, time
 import keyboard
